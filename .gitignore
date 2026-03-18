@@ -3,11 +3,17 @@ __pycache__/
 venv/
 *.pyc
 .env
+*.db
 
 # Media (Don't upload meeting videos to GitHub!)
+*.mp4
+*.mkv
+*.mov
+*.avi
 backend/uploads/*
 backend/temp_audio/*
 !backend/uploads/.gitkeep
+!backend/temp_audio/.gitkeep
 
 # Node
 node_modules/
