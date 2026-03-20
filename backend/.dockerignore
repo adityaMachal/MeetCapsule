@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+meetcapsule.db
+uploads/*
+temp_audio/*
+!uploads/.gitkeep
+!temp_audio/.gitkeep
