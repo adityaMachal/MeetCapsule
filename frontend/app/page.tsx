@@ -30,6 +30,31 @@ export default function Home() {
     }
   };
 
+  const pollMeetingStatus = async (meetingId: number) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/meetings/${meetingId}`);
+        const updatedMeeting = res.data;
+
+        // Update meetings list
+        setMeetings(prev => prev.map(m => m.id === meetingId ? updatedMeeting : m));
+
+        // Update selected meeting if it's the one being polled
+        setSelectedMeeting((prev: any) => prev?.id === meetingId ? updatedMeeting : prev);
+
+        if (updatedMeeting.status === "COMPLETED" || updatedMeeting.status === "FAILED") {
+          clearInterval(pollInterval);
+          if (updatedMeeting.status === "FAILED") {
+            setError(`Processing failed for ${updatedMeeting.filename}: ${updatedMeeting.error}`);
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+        clearInterval(pollInterval);
+      }
+    }, 3000); // Poll every 3 seconds
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -43,10 +68,14 @@ export default function Home() {
       const res = await axios.post(`${API_BASE}/process`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setMeetings([res.data, ...meetings]);
-      setSelectedMeeting(res.data);
+      const initialMeeting = res.data;
+      setMeetings([initialMeeting, ...meetings]);
+      setSelectedMeeting(initialMeeting);
+      
+      // Start polling for this meeting
+      pollMeetingStatus(initialMeeting.id);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Processing failed. Check if server is running.");
+      setError(err.response?.data?.detail || "Upload failed. Check if server is running.");
     } finally {
       setIsUploading(false);
     }
@@ -74,17 +103,17 @@ export default function Home() {
           {/* Upload Card */}
           <div className="card" style={{ textAlign: "center", position: "relative", overflow: "hidden" }}>
             <div 
-              onClick={() => fileInputRef.current?.click()}
-              style={{ padding: "2rem", border: "2px dashed var(--border)", borderRadius: "12px", cursor: "pointer" }}
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              style={{ padding: "2rem", border: "2px dashed var(--border)", borderRadius: "12px", cursor: isUploading ? "not-allowed" : "pointer", opacity: isUploading ? 0.7 : 1 }}
             >
               <Upload size={32} style={{ color: "var(--primary)", marginBottom: "1rem" }} />
-              <h3>{isUploading ? "AI is processing..." : "Upload Meeting Video"}</h3>
+              <h3>{isUploading ? "Uploading video..." : "Upload Meeting Video"}</h3>
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>MP4, MOV, MKV up to 500MB</p>
               {isUploading && (
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 25, ease: "linear" }}
+                  transition={{ duration: 10, ease: "linear" }}
                   style={{ 
                     position: "absolute", 
                     bottom: 0, 
@@ -119,10 +148,31 @@ export default function Home() {
                 style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "1rem", padding: "16px" }}
               >
                 <div style={{ background: "rgba(99, 102, 241, 0.1)", padding: "10px", borderRadius: "8px" }}>
-                  <FileVideo size={20} color="var(--primary)" />
+                  {m.status === "COMPLETED" ? (
+                    <FileVideo size={20} color="var(--primary)" />
+                  ) : m.status === "FAILED" ? (
+                    <X size={20} color="var(--error)" />
+                  ) : (
+                    <Clock size={20} color="var(--warning)" className="animate-spin" />
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600, fontSize: "0.95rem" }}>{m.filename}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <p style={{ fontWeight: 600, fontSize: "0.95rem" }}>{m.filename}</p>
+                    {m.status !== "COMPLETED" && (
+                      <span style={{ 
+                        fontSize: "0.65rem", 
+                        padding: "2px 6px", 
+                        borderRadius: "4px", 
+                        background: m.status === "FAILED" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                        color: m.status === "FAILED" ? "var(--error)" : "var(--warning)",
+                        textTransform: "uppercase",
+                        fontWeight: 700
+                      }}>
+                        {m.status}
+                      </span>
+                    )}
+                  </div>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                     {new Date(m.created_at).toLocaleDateString()}
                   </p>
@@ -152,46 +202,71 @@ export default function Home() {
                 />
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-                <section>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", color: "var(--primary)" }}>
-                    <Brain size={20} />
-                    <h3 style={{ fontSize: "1.1rem" }}>Detailed AI Summary</h3>
-                  </div>
-                  <div 
-                    className="summary-content"
-                    style={{ color: "var(--text)", fontSize: "0.95rem" }}
-                  >
-                    <ReactMarkdown>{selectedMeeting.summary}</ReactMarkdown>
-                  </div>
-                </section>
+              {selectedMeeting.status === "PROCESSING" || selectedMeeting.status === "PENDING" ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
+                  <Clock size={48} color="var(--primary)" className="animate-spin" />
+                  <h3 style={{ color: "var(--primary)" }}>AI is analyzing your meeting...</h3>
+                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
+                    We're extracting audio and generating your detailed summary. This usually takes a few minutes.
+                  </p>
+                </div>
+              ) : selectedMeeting.status === "FAILED" ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
+                  <X size={48} color="var(--error)" />
+                  <h3 style={{ color: "var(--error)" }}>Processing Failed</h3>
+                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
+                    {selectedMeeting.error || "An unknown error occurred during processing."}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+                  <section>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", color: "var(--primary)" }}>
+                      <Brain size={20} />
+                      <h3 style={{ fontSize: "1.1rem" }}>Detailed AI Summary</h3>
+                    </div>
+                    <div 
+                      className="summary-content"
+                      style={{ color: "var(--text)", fontSize: "0.95rem" }}
+                    >
+                      <ReactMarkdown>{selectedMeeting.summary}</ReactMarkdown>
+                    </div>
+                  </section>
 
-                <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+                  <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
 
-                <section>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", color: "var(--text-muted)" }}>
-                    <BookOpen size={20} />
-                    <h3 style={{ fontSize: "1.1rem" }}>Full Transcript</h3>
-                  </div>
-                  <div style={{ 
-                    maxHeight: "300px", 
-                    overflowY: "auto", 
-                    fontSize: "0.875rem", 
-                    color: "var(--text-muted)", 
-                    padding: "1rem", 
-                    background: "var(--surface-light)", 
-                    borderRadius: "8px" 
-                  }}>
-                    {selectedMeeting.transcript}
-                  </div>
-                </section>
-              </div>
+                  <section>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", color: "var(--text-muted)" }}>
+                      <BookOpen size={20} />
+                      <h3 style={{ fontSize: "1.1rem" }}>Full Transcript</h3>
+                    </div>
+                    <div style={{ 
+                      maxHeight: "300px", 
+                      overflowY: "auto", 
+                      fontSize: "0.875rem", 
+                      color: "var(--text-muted)", 
+                      padding: "1rem", 
+                      background: "var(--surface-light)", 
+                      borderRadius: "8px" 
+                    }}>
+                      {selectedMeeting.transcript}
+                    </div>
+                  </section>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       <style jsx>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 2s linear infinite;
+        }
         .meeting-card.active {
           border-color: var(--primary);
           background: rgba(99, 102, 241, 0.05);

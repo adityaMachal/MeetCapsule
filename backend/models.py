@@ -9,6 +9,8 @@ class Meeting(Base):
     filename = Column(String(255), nullable=False)
     transcript = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
+    status = Column(String(50), default="PENDING")  # PENDING, PROCESSING, COMPLETED, FAILED
+    error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -17,5 +19,7 @@ class Meeting(Base):
             "filename": self.filename,
             "transcript": self.transcript,
             "summary": self.summary,
+            "status": self.status,
+            "error": self.error,
             "created_at": self.created_at
         }
