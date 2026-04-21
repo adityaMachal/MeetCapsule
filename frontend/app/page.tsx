@@ -24,7 +24,7 @@ export default function Home() {
   const fetchMeetings = async () => {
     try {
       const res = await axios.get(`${API_BASE}/meetings`);
-      setMeetings(res.data.reverse()); // Show newest first
+      setMeetings(res.data); // Backend now returns newest first
     } catch (err) {
       console.error("Failed to fetch meetings");
     }
