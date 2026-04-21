@@ -34,6 +34,7 @@ class MeetingProcessor:
                 'ffmpeg', '-i', video_path,
                 '-vn', '-acodec', 'libmp3lame',
                 '-ac', '1', '-ar', '16000',
+                '-preset', 'ultrafast',
                 '-y', audio_output
             ]
             subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -65,7 +66,7 @@ class MeetingProcessor:
             
             # 3. Use Gemini to transcribe
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=[
                     "Please provide a word-for-word transcript of this audio. Do not summarize yet.",
                     uploaded_file
@@ -102,7 +103,7 @@ class MeetingProcessor:
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=prompt
             )
             return response.text
