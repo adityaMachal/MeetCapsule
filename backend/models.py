@@ -11,7 +11,7 @@ class Meeting(Base):
     summary = Column(Text, nullable=True)
     status = Column(String(50), default="PENDING")  # PENDING, PROCESSING, COMPLETED, FAILED
     error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     def to_dict(self):
         return {

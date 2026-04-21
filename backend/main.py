@@ -70,8 +70,16 @@ async def health_check():
     return {"status": "online", "message": "MeetCapsule AI Backend is running"}
 
 @app.get("/meetings")
-async def list_meetings(db: Session = Depends(database.get_db)):
-    meetings = db.query(models.Meeting).all()
+async def list_meetings(
+    db: Session = Depends(database.get_db),
+    limit: int = 20,
+    offset: int = 0
+):
+    meetings = db.query(models.Meeting)\
+        .order_by(models.Meeting.created_at.desc())\
+        .limit(limit)\
+        .offset(offset)\
+        .all()
     return [meeting.to_dict() for meeting in meetings]
 
 @app.get("/meetings/{meeting_id}")
