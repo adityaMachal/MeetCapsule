@@ -1,5 +1,5 @@
 import os
-import shutil
+import aiofiles
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from scripts.processor import MeetingProcessor
@@ -94,8 +94,9 @@ async def process_video(
     temp_video_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
     
     try:
-        with open(temp_video_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        async with aiofiles.open(temp_video_path, "wb") as out_file:
+            while content := await file.read(1024 * 1024):  # Read 1MB chunks
+                await out_file.write(content)
         
         # CREATE INITIAL RECORD
         new_meeting = models.Meeting(

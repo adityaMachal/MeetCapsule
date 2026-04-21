@@ -6,3 +6,4 @@ python-dotenv
 ffmpeg-python
 python-multipart
 sqlalchemy
+aiofiles
