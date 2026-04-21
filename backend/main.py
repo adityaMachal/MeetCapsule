@@ -26,28 +26,50 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def run_processing(meeting_id: int, video_path: str):
-    """Background task to process the video and update the database."""
+    """Background task to process the video with detailed status updates."""
     db = database.SessionLocal()
+    audio_path = None
     try:
         meeting = db.query(models.Meeting).filter(models.Meeting.id == meeting_id).first()
         if not meeting:
             print(f"[!] Meeting {meeting_id} not found in database.")
             return
 
-        meeting.status = "PROCESSING"
+        # 1. EXTRACTING AUDIO
+        meeting.status = "EXTRACTING"
+        db.commit()
+        audio_path = processor.extract_audio(video_path)
+        if not audio_path:
+            meeting.status = "FAILED"
+            meeting.error = "Audio extraction failed."
+            db.commit()
+            return
+
+        # 2. TRANSCRIBING
+        meeting.status = "TRANSCRIBING"
+        db.commit()
+        transcript = processor.transcribe_with_gemini(audio_path)
+        if not transcript:
+            meeting.status = "FAILED"
+            meeting.error = "Transcription failed."
+            db.commit()
+            return
+        
+        meeting.transcript = transcript
         db.commit()
 
-        print(f"[*] Background processing started for {meeting.filename}...")
-        result = processor.process(video_path)
-
-        if not result:
+        # 3. SUMMARIZING
+        meeting.status = "SUMMARIZING"
+        db.commit()
+        summary = processor.summarize(transcript)
+        if not summary:
             meeting.status = "FAILED"
-            meeting.error = "Processing failed."
-        else:
-            meeting.transcript = result.get("transcript")
-            meeting.summary = result.get("summary")
-            meeting.status = "COMPLETED"
+            meeting.error = "Summarization failed."
+            db.commit()
+            return
         
+        meeting.summary = summary
+        meeting.status = "COMPLETED"
         db.commit()
         print(f"[+] Background processing completed for {meeting.filename}.")
 
@@ -61,9 +83,14 @@ def run_processing(meeting_id: int, video_path: str):
         print(f"[!] Background Server Error: {e}")
     finally:
         db.close()
+        # Cleanup video path
         if os.path.exists(video_path):
             os.remove(video_path)
             print(f"[*] Cleaned up uploaded video: {video_path}")
+        # Cleanup audio path
+        if audio_path and os.path.exists(audio_path):
+            os.remove(audio_path)
+            print(f"[*] Cleaned up temporary audio: {audio_path}")
 
 @app.get("/")
 async def health_check():

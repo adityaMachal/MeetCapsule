@@ -202,23 +202,7 @@ export default function Home() {
                 />
               </div>
 
-              {selectedMeeting.status === "PROCESSING" || selectedMeeting.status === "PENDING" ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
-                  <Clock size={48} color="var(--primary)" className="animate-spin" />
-                  <h3 style={{ color: "var(--primary)" }}>AI is analyzing your meeting...</h3>
-                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
-                    We're extracting audio and generating your detailed summary. This usually takes a few minutes.
-                  </p>
-                </div>
-              ) : selectedMeeting.status === "FAILED" ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
-                  <X size={48} color="var(--error)" />
-                  <h3 style={{ color: "var(--error)" }}>Processing Failed</h3>
-                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
-                    {selectedMeeting.error || "An unknown error occurred during processing."}
-                  </p>
-                </div>
-              ) : (
+              {selectedMeeting.status === "COMPLETED" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
                   <section>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", color: "var(--primary)" }}>
@@ -252,6 +236,27 @@ export default function Home() {
                       {selectedMeeting.transcript}
                     </div>
                   </section>
+                </div>
+              ) : selectedMeeting.status === "FAILED" ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
+                  <X size={48} color="var(--error)" />
+                  <h3 style={{ color: "var(--error)" }}>Processing Failed</h3>
+                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
+                    {selectedMeeting.error || "An unknown error occurred during processing."}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "400px", gap: "1rem" }}>
+                  <Clock size={48} color="var(--primary)" className="animate-spin" />
+                  <h3 style={{ color: "var(--primary)", textTransform: "capitalize" }}>
+                    {selectedMeeting.status.toLowerCase()}...
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", textAlign: "center", maxWidth: "300px" }}>
+                    {selectedMeeting.status === "PENDING" && "Waiting to start processing..."}
+                    {selectedMeeting.status === "EXTRACTING" && "Converting video to audio for analysis..."}
+                    {selectedMeeting.status === "TRANSCRIBING" && "Converting speech to text using Gemini 1.5 Flash..."}
+                    {selectedMeeting.status === "SUMMARIZING" && "Generating your detailed intelligence summary..."}
+                  </p>
                 </div>
               )}
             </motion.div>
